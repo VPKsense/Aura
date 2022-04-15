@@ -50,6 +50,7 @@ char pass[] = "akhilesh";
 #define Colp V5
 #define Bsync V6
 #define Ssync V7
+#define PartyM V8
 //////////////////////
 
 /////Support variables/////
@@ -208,6 +209,19 @@ BLYNK_WRITE(Ssync)
   S=param.asInt();
 }
 
+BLYNK_WRITE(PartyM)
+{
+  delay(1500);
+  ir.sendNEC(SMO, 32);
+  for(int i=S;i<=17;i++)
+  {
+      ir.sendNEC(BUP, 32);
+      delay(10);
+  }
+  S=17;
+  Blynk.virtualWrite(Ssync,S);
+}
+
 BLYNK_CONNECTED()
 { if(pstat==0)
   {
@@ -220,7 +234,7 @@ void setup()
 { 
   Serial.begin(9600);
   Serial.println();
-  Serial.println("               -丂𝐞𝐧𝐬𝐞 𝐎𝐒 v1.0 for Aura-");
+  Serial.println("               -丂𝐞𝐧𝐬𝐞 𝐎𝐒 v1.1 for Aura-");
   Serial.println("Booting up...");
   OTA();
   ir.begin();
