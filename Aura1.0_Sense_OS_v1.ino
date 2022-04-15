@@ -4,11 +4,14 @@
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
+#include <ESP8266mDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 
 IRsend ir(4);  //IR at D2
 
 char auth[] = "QXqpKFLay18EE3uprRwvKWydEFYtscd4";
-char ssid[] = "2PoInT0";
+char ssid[] = "2PoInT0";  //SSID and PWD used both for Blynk and OTA
 char pass[] = "akhilesh";
 
 /////IR Codes Define/////
@@ -43,24 +46,36 @@ char pass[] = "akhilesh";
 #define Powerp V1
 #define Warmp V2
 #define Effectp V3
+#define BSp V4
+#define Colp V5
+#define Bsync V6
+#define Ssync V7
 //////////////////////
 
 /////Support variables/////
-int brightness=30;
-int Speed=1;
+int power=true;
+int Br=30;
+int S=1;
 int pstat=0;
 int dat;
 int effect[4]={FLA,STR,FAD,SMO};
 int e=0;
+int Mode=0;
+int color[16]={R,G,B,W,C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12};
+int c=0;
 ///////////////////////////
 
 BLYNK_WRITE(Powerp)
 {
   dat=param.asInt();
   if(dat)
-    ir.sendNEC(ON, 32);
-  else
-    ir.sendNEC(OFF, 32);
+  {
+    if(power)
+      ir.sendNEC(ON, 32);
+    else
+      ir.sendNEC(OFF, 32);
+    power=!power;
+  }
 }
 
 BLYNK_WRITE(Warmp)
@@ -69,11 +84,15 @@ BLYNK_WRITE(Warmp)
   if(dat)
   {
     ir.sendNEC(C1, 32);
-    for(int i=brightness;i>9;i--)
+    for(int i=Br;i>9;i--)
     {
       ir.sendNEC(BDO, 32);
       delay(10);
     }
+    Br=9;
+    Blynk.virtualWrite(BSp,Br);
+    Blynk.virtualWrite(Bsync,Br);
+    Mode=0;
   }
 }
 
@@ -88,7 +107,8 @@ BLYNK_WRITE(Calibp)
       ir.sendNEC(BUP, 32);
       delay(10);
     }
-    brightness=30;
+    Br=30;
+    Blynk.virtualWrite(Bsync,Br);
     
     ir.sendNEC(STR, 32);
     for(int i=30;i>=1;i--)
@@ -96,38 +116,113 @@ BLYNK_WRITE(Calibp)
       ir.sendNEC(BDO, 32);
       delay(10);
     }
-    Speed=1;
+    S=1;
+    Mode=1;
+    Blynk.virtualWrite(Ssync,S);
+    Blynk.virtualWrite(BSp,S);   
   }
 }
 
 BLYNK_WRITE(Effectp)
 {
   dat=param.asInt();
+  Blynk.virtualWrite(BSp,S);
   if(dat)
   {
     ir.sendNEC(effect[e], 32);
-    Serial.println(effect[e]);
     e++;
     if (e>3)
       e=0;
+    Mode=1;
   }
+}
+
+BLYNK_WRITE(BSp)
+{
+  dat=param.asInt();
+  Serial.println(dat);
+  if(Mode==0)
+  {
+  if(dat>Br)
+  {
+    for(int i=Br;i<=dat;i++)
+    {
+      ir.sendNEC(BUP, 32);
+      delay(10);
+    }
+  }
+  if(dat<Br)
+  {
+    for(int i=Br;i>=dat;i--)
+    {
+      ir.sendNEC(BDO, 32);
+      delay(10);
+    }
+  }
+  Br=dat;
+  }
+
+  if(Mode==1)
+  {
+  if(dat>S)
+  {
+    for(int i=S;i<=dat;i++)
+    {
+      ir.sendNEC(BUP, 32);
+      delay(10);
+    }
+  }
+  if(dat<S)
+  {
+    for(int i=S;i>=dat;i--)
+    {
+      ir.sendNEC(BDO, 32);
+      delay(10);
+    }
+  }
+  S=dat;
+  }
+}
+
+BLYNK_WRITE(Colp)
+{
+  dat=param.asInt();
+  Blynk.virtualWrite(BSp,Br);
+  if(dat)
+  {
+    ir.sendNEC(color[c], 32);
+    c++;
+    if (c>15)
+      c=0;
+    Mode=0;
+  }
+}
+
+BLYNK_WRITE(Bsync)
+{
+  Br=param.asInt();
+}
+
+BLYNK_WRITE(Ssync)
+{
+  S=param.asInt();
 }
 
 BLYNK_CONNECTED()
 { if(pstat==0)
   {
-    Blynk.syncVirtual(Warmp);
+    Blynk.syncVirtual(Warmp,Bsync,Ssync);
     pstat++;
-  }
-  else
-  {
-    //Blynk.syncVirtual(//);
   }
 }
 
 void setup()
-{
+{ 
   Serial.begin(9600);
+  Serial.println();
+  Serial.println("               -丂𝐞𝐧𝐬𝐞 𝐎𝐒 v1.0 for Aura-");
+  Serial.println("Booting up...");
+  OTA();
   ir.begin();
   Blynk.begin(auth, ssid, pass,IPAddress(188,166,206,43),8080);
   delay(400);
@@ -138,4 +233,56 @@ void setup()
 void loop()
 {
   Blynk.run();
+  ArduinoOTA.handle();
+}
+
+
+
+void OTA()
+{
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, pass);
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) 
+  {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(5000);
+    ESP.restart();
+  }
+
+  ArduinoOTA.setHostname("Aura");
+  ArduinoOTA.setPassword((const char *)"sensepro");
+  
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH) {
+      type = "sketch";
+    } else { // U_FS
+      type = "filesystem";
+    }
+
+    // NOTE: if updating FS this would be the place to unmount FS using FS.end()
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) {
+      Serial.println("Auth Failed");
+    } else if (error == OTA_BEGIN_ERROR) {
+      Serial.println("Begin Failed");
+    } else if (error == OTA_CONNECT_ERROR) {
+      Serial.println("Connect Failed");
+    } else if (error == OTA_RECEIVE_ERROR) {
+      Serial.println("Receive Failed");
+    } else if (error == OTA_END_ERROR) {
+      Serial.println("End Failed");
+    }
+  });
+  ArduinoOTA.begin();
+  Serial.println("OTA Ready");
 }
