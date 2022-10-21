@@ -5,3 +5,7 @@ ALL DONE 15/10/2021
 
 ---Sense OS v1.1--- <31/10/2021>
 >Added Party mode
+
+---Sense OS v1.2--- <17/10/2022> <Change of Blynk version - V1.1>
+>Changes according to Blynk v1.1 added
+>Fixed power button bug
