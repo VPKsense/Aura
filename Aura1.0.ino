@@ -1,4 +1,9 @@
 #define BLYNK_PRINT Serial
+
+#define BLYNK_TEMPLATE_ID "###"
+#define BLYNK_DEVICE_NAME "AURA"
+#define BLYNK_AUTH_TOKEN "###"
+
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
 #include <Arduino.h>
@@ -10,7 +15,7 @@
 
 IRsend ir(4);  //IR at D2
 
-char auth[] = "###";
+char auth[] = BLYNK_AUTH_TOKEN;
 char ssid[] = "###";  //SSID and PWD used both for Blynk and OTA
 char pass[] = "###";
 
@@ -72,9 +77,9 @@ BLYNK_WRITE(Powerp)
   if(dat)
   {
     if(power)
-      ir.sendNEC(ON, 32);
-    else
       ir.sendNEC(OFF, 32);
+    else
+      ir.sendNEC(ON, 32);
     power=!power;
   }
 }
@@ -234,11 +239,11 @@ void setup()
 { 
   Serial.begin(9600);
   Serial.println();
-  Serial.println("               -丂𝐞𝐧𝐬𝐞 𝐎𝐒 v1.1 for Aura-");
+  Serial.println("               -丂𝐞𝐧𝐬𝐞 𝐎𝐒 v1.2 for Aura-");
   Serial.println("Booting up...");
   OTA();
   ir.begin();
-  Blynk.begin(auth, ssid, pass,IPAddress(188,166,206,43),8080);
+  Blynk.begin(auth, ssid, pass);
   delay(400);
   ir.sendNEC(ON, 32);
   delay(100);
